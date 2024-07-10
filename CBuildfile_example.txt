@@ -1,0 +1,15 @@
+// CBuildfiles should be named 'CBuildfile'
+// say we have a simple project with 3 files, 'main.c', 'lib.c', and 'lib.h'
+// we need to build all of these together(duh)
+// so in this file, we do:
+
+main.c
+lib.c
+
+// now CBuild will build those files
+
+// but say we also want it to output an executable called 'foobar'(by default the output name is 'compiled_output'), we can do:
+%OUT foobar
+
+// and if we want to use a specfic compiler(the default compiler is gcc), we do:
+%COMPILER clang
