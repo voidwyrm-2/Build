@@ -13,3 +13,6 @@ lib.c
 
 // and if we want to use a specfic compiler(the default compiler is gcc), we do:
 %COMPILER clang
+
+// if you want to pass arguments to the compiler you can do:
+%ARG -v

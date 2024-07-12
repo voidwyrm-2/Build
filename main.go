@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/akamensky/argparse"
@@ -15,17 +16,13 @@ import (
 
 var COMPILER string = "gcc"
 
-var showInvocation = false
-
-func compile(files []string, outpath string) (string, string, error) {
+func compile(files []string, xargs []string, outpath string) (string, string, error) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
 	args := files
+	args = append(args, xargs...)
 	args = append(args, "-o", outpath)
-	if showInvocation {
-		args = append(args, "-v")
-	}
 
 	cmd := exec.Command(COMPILER, args...)
 	cmd.Stdout = &stdout
@@ -58,6 +55,7 @@ type NullableString any
 
 type CBuildfileInfo struct {
 	output, compiler NullableString
+	xargs            []string
 }
 
 func parseCbuildFile() ([]string, CBuildfileInfo, error) {
@@ -72,11 +70,12 @@ func parseCbuildFile() ([]string, CBuildfileInfo, error) {
 
 	var outpath NullableString = nil
 	var compiler NullableString = nil
+	var xargs []string
 
 	for ln, l := range lines {
 		commentIdx := strings.Index(l, "//")
 		if commentIdx != -1 {
-			l = l[:commentIdx-1]
+			l = l[:commentIdx]
 		}
 		l = strings.TrimSpace(l)
 		if l == "" {
@@ -91,6 +90,9 @@ func parseCbuildFile() ([]string, CBuildfileInfo, error) {
 						return []string{}, CBuildfileInfo{}, fmt.Errorf("error on line %d: directive 'OUT' has already been declared", ln+1)
 					}
 					outpath = strings.TrimSpace(dir[3:])
+					continue
+				} else if dir[:len(dir)-(len(dir)-4)] == "ARG " {
+					xargs = append(xargs, strings.TrimSpace(dir[3:]))
 					continue
 				} else {
 					return []string{}, CBuildfileInfo{}, fmt.Errorf("error on line %d: invalid directive '%s'", ln+1, l)
@@ -122,7 +124,7 @@ func parseCbuildFile() ([]string, CBuildfileInfo, error) {
 		}
 	}
 
-	return paths, CBuildfileInfo{output: outpath, compiler: compiler}, nil
+	return paths, CBuildfileInfo{output: outpath, compiler: compiler, xargs: xargs}, nil
 }
 
 const extraNote string = "\n              Note: if -b/--build and -c/--cbuild are omitted, then CBuild will search for a CBuildfile in the current directory"
@@ -147,6 +149,8 @@ func main() {
 	var paths []string = *ptr_paths
 	var cbuildfile string = *ptr_cbuildfile
 	var outpath string = *ptr_outpath
+
+	var xargs []string
 
 	cbuildfile = path.Clean(strings.TrimSpace(cbuildfile))
 	if cbuildfile == "" || cbuildfile == "." {
@@ -193,7 +197,8 @@ func main() {
 	}
 
 	if len(paths) == 0 {
-		if _, cbuildFerr := os.Stat("./CBuildfile"); cbuildFerr == nil {
+		cbuildfile_abs, _ := filepath.Abs("./CBuildfile")
+		if _, cbuildFerr := os.Stat(cbuildfile_abs); cbuildFerr == nil {
 			//fmt.Println("CBuildfile exists")
 			var cbuildParseErr error
 			var info CBuildfileInfo
@@ -208,6 +213,7 @@ func main() {
 			if info.compiler != nil {
 				COMPILER = info.compiler.(string)
 			}
+			xargs = info.xargs
 		} else if errors.Is(cbuildFerr, os.ErrNotExist) {
 			fmt.Println("CBuild: no CBuildfile found")
 			return
@@ -219,7 +225,7 @@ func main() {
 		}
 	}
 
-	stdout, stderr, _ := compile(paths, outpath)
+	stdout, stderr, _ := compile(paths, xargs, outpath)
 	stderr = strings.TrimSpace(stderr)
 	//if compileErr != nil {
 	//	fmt.Println()
