@@ -11,7 +11,7 @@ First, install Go if you haven't already from [go.dev](go.dev)
 
 Then, run this command:
 ```sh
-go install "https://github.com/voidwyrm-2/CBuild@latest"
+go install "github.com/voidwyrm-2/CBuild@latest"
 ```
 
 ## Usage
